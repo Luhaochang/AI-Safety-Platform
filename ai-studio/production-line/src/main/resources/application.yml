@@ -1,0 +1,106 @@
+server:
+  port: 8082
+  servlet:
+    session:
+      timeout: 5m # 设置session的有效期为五分钟
+  compression:
+    enabled: true # 开启返回结果压缩，减少传输耗时
+    min-response-size: 2KB
+
+spring:
+  main:
+    # 引入下面这个配置，主要是为了解决自定义实现的多数据源功能，自主注册的datasource替换默认的
+    allow-bean-definition-overriding: true
+    allow-circular-references: true
+  mvc:
+    async:
+      request-timeout:
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 512MB
+      max-request-size: 1024MB
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${datasource.auth.url:jdbc:mysql://10.33.38.21:3306/ai_studio?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true}
+    username: ${datasource.auth.username:root}
+    password: ${datasource.auth.password:xiexie402}
+  redis:
+    host: ${redis.host:10.33.38.21}
+    port: ${redis.port:6379}
+    password: ${redis.password:xiexie402}
+    database: ${redis.database:2}
+  elasticsearch:
+    rest:
+#      uris: http://elasticsearch:9200
+      uris: http://10.33.38.22:9200
+
+# knife4j
+knife4j:
+  enable: true
+  setting:
+    language: zh-CN
+  openapi:
+    title: production-line
+    description: 深度学习平台开发文档
+    version: 1.0.0
+
+  #开启暴露web
+  endpoints:
+    web:
+      exposure:
+        include: prometheus
+
+# mybatis 相关统一配置
+mybatis-plus:
+  configuration:
+    #开启下划线转驼峰
+    map-underscore-to-camel-case: true
+  mapper-locations: classpath:mapper/*.xml
+
+minio:
+  endpoint: http://127.0.0.1:9000
+  accessKey: minioadmin
+  secretKey: minioadmin123
+  downloadPath: http://127.0.0.1:9000/
+  bucket: ai-studio
+
+kubernetes-set:
+  token: 
+  basePath: https://localhost:6443
+  pointPath: 
+  nameSpace: default
+  config: 
+  datasetConfig: 
+  endPointUrlName: MLFLOW_S3_ENDPOINT_URL
+  endPointUrl: 
+  accessKeyIdName: AWS_ACCESS_KEY_ID
+  accessKeyId: 
+  secretAccessKeyName: AWS_SECRET_ACCESS_KEY
+  secretAccessKey: 
+  deployContainerPort: 8080
+  jupyterDeployContainerPort: 8888
+  nodePortBasePath: 
+  autoLabelImageUrl: 
+
+mlflow:
+  path: http://localhost:5000
+  downloadPath: 
+  experimentMaxResults: 100
+  metricMaxResults: 100
+  runMaxResults: 100
+  imageHeader: 
+
+airflow:
+  path: http://localhost:8080
+  dagName: 
+  authorization: 
+  username: admin
+  password: admin
+  jobDelete: 
+  serviceDelete: 
+  serviceScale: 
+  jobScale: 
+
+prometheus:
+  url: http://localhost:9090

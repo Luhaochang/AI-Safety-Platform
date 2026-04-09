@@ -1,0 +1,62 @@
+server:
+  port: 8081
+  servlet:
+    session:
+      timeout: 5m # 设置session的有效期为五分钟
+  compression:
+    enabled: true # 开启返回结果压缩，减少传输耗时
+    min-response-size: 2KB
+
+spring:
+  main:
+    # 引入下面这个配置，主要是为了解决自定义实现的多数据源功能，自主注册的datasource替换默认的
+    allow-bean-definition-overriding: true
+    allow-circular-references: true
+  mvc:
+    async:
+      request-timeout:
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 512MB
+      max-request-size: 1024MB
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${datasource.auth.url:jdbc:mysql://10.33.38.21:3306/ai_studio?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true}
+    username: ${datasource.auth.username:root}
+    password: ${datasource.auth.password:xiexie402}
+  redis:
+    host: ${redis.host:10.33.38.21}
+    port: ${redis.port:6379}
+    password: ${redis.password:xiexie402}
+    database: ${redis.database:2}
+
+# knife4j
+knife4j:
+  enable: true
+  setting:
+    language: zh-CN
+  openapi:
+    title: auth
+    description: 深度学习平台开发文档
+    version: 1.0.0
+
+  #开启暴露web
+  endpoints:
+    web:
+      exposure:
+        include: prometheus
+
+# mybatis 相关统一配置
+mybatis-plus:
+  configuration:
+    #开启下划线转驼峰
+    map-underscore-to-camel-case: true
+  mapper-locations: classpath:mapper/*.xml
+
+minio:
+  endpoint: ${minio-server.endpoint:http://127.0.0.1:9000}
+  accessKey: ${minio-server.accessKey:minioadmin}
+  secretKey: ${minio-server.secretKey:minioadmin123}
+  downloadPath: ${minio-server.downloadPath:http://127.0.0.1:9000/}
+  bucket: ${minio-server.bucket:ai-studio}

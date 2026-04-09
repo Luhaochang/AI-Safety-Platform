@@ -1,0 +1,12 @@
+node_modules/
+simple-rag/
+docs/
+*.png
+*.md
+*.docx
+package-lock.json
+yarn.lock
+ai-studio-front/dist/
+ai-studio-front/public/conv.json
+rag-server/__pycache__/
+rag-server/data/

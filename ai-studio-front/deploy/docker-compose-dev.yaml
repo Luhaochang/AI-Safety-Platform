@@ -1,0 +1,16 @@
+version: "3.7"
+services:
+  ai-studio-front:
+    image: reg.yunchensys.com:20180/naic-dev/ai-studio-front:1.0.0
+    container_name: ai-studio-front
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/hosts:/etc/hosts
+    ports:
+      - "12160:80"
+    restart: always
+    networks:
+      mes-net:
+networks:
+  mes-net:
+    external: true

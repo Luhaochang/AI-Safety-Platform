@@ -1,0 +1,17 @@
+{
+  "name": "markcanvas",
+  "version": "1.0.0",
+  "description": "- 矩形\r - - 拖拽绘制\r - - 完成之后, 选中可以拖动4个顶点",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "tsc"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@leafer-ui/interface": "^1.0.0-beta.4",
+    "leafer-ui": "^1.0.0-beta.4",
+    "typescript": "^5.1.6"
+  }
+}

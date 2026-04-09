@@ -1,0 +1,20 @@
+spring:
+  application:
+    name: ai-studio-gateway
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 10.33.38.21:8848
+        group: AI-STUDIO
+
+      config:
+        server-addr: 10.33.38.21:8848
+        # 指定了读取配置文件的格式
+        file-extension: yml
+        shared-configs:
+          - data-id: ai-studio-config-dev.yml
+            group: AI-STUDIO
+  servlet:
+    multipart:
+      max-file-size: 500MB
+      max-request-size: 500MB

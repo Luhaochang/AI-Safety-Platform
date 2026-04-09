@@ -1,0 +1,18 @@
+package com.naic.log.annotation;
+
+import java.lang.annotation.*;
+
+/**
+ * Operation log annotation
+ */
+@Target(ElementType.METHOD)
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+public @interface Log {
+
+    String value() default "";
+
+    String title() default "";
+
+    String businessType() default "";
+}

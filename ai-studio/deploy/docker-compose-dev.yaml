@@ -1,0 +1,25 @@
+version: "3.7"
+services:
+  ai-studio-auth:
+    image: reg.yunchensys.com:20180/naic-dev/ai-studio-auth:1.0.0
+    container_name: ai-studio-auth
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+    network_mode: host
+    restart: always
+
+  ai-studio-gateway:
+    image: reg.yunchensys.com:20180/naic-dev/ai-studio-gateway:1.0.0
+    container_name: ai-studio-gateway
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+    network_mode: host
+    restart: always
+
+  ai-studio-production-line:
+    image: reg.yunchensys.com:20180/naic-dev/ai-studio-production-line:1.0.0
+    container_name: ai-studio-production-line
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+    network_mode: host
+    restart: always
