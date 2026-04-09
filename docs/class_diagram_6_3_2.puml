@@ -1,0 +1,90 @@
+@startuml 攻击验证与风险复现模块类图
+
+skinparam classAttributeIconSize 0
+skinparam classFontSize 13
+skinparam classAttributeFontSize 11
+skinparam classStereotypeFontSize 10
+skinparam packageFontSize 14
+skinparam linetype ortho
+skinparam nodesep 60
+skinparam ranksep 50
+
+package "攻击验证与风险复现模块" {
+
+    class AttackController {
+        - task_pool: dict
+        - running_task_id: str
+        + create_task(config): AttackTask
+        + start_task(task_id): bool
+        + stop_task(task_id): bool
+        + get_task_status(task_id): dict
+        + list_tasks(): List[AttackTask]
+    }
+
+    class AttackTask {
+        - id: str
+        - name: str
+        - target_topic: str
+        - target_queries: List[str]
+        - attack_method: str
+        - inject_count: int
+        - strength: str
+        - status: str
+        - create_time: str
+        - duration: str
+        + to_dict(): dict
+        + update_status(status): void
+        + get_result(): dict
+    }
+
+    class PoisonDoc {
+        - id: str
+        - title: str
+        - content: str
+        - ppl: float
+        - similarity: float
+        - injected: bool
+        + to_dict(): dict
+    }
+
+    class PoisonGenerator {
+        - model: LanguageModel
+        - optimizer: GradientOptimizer
+        - target_embeddings: ndarray
+        - max_iterations: int
+        + generate_poison_docs(task): List[PoisonDoc]
+        + optimize_text(seed_text, target): str
+        + compute_similarity(doc, query): float
+        + evaluate_ppl(text): float
+    }
+
+    class KnowledgeInjector {
+        - kb_client: KBClient
+        - vector_store: VectorStore
+        - inject_log: List[dict]
+        + inject_documents(docs, kb_id): bool
+        + refresh_index(kb_id): bool
+        + verify_injection(doc_ids): List[dict]
+        + rollback_injection(inject_log_id): bool
+    }
+
+    class AttackEvaluator {
+        - eval_queries: List[str]
+        - baseline_answers: List[str]
+        + evaluate_attack(task_id): dict
+        + compute_asr(results): float
+        + compute_rsr(results): float
+        + generate_attack_log(task_id): dict
+    }
+}
+
+AttackController "1" *-- "*" AttackTask
+AttackController ..> PoisonGenerator : <<call>>
+AttackController ..> KnowledgeInjector : <<call>>
+AttackController ..> AttackEvaluator : <<call>>
+PoisonGenerator ..> PoisonDoc : <<create>>
+PoisonGenerator ..> AttackTask : <<use>>
+KnowledgeInjector ..> PoisonDoc : <<use>>
+AttackEvaluator ..> AttackTask : <<use>>
+
+@enduml

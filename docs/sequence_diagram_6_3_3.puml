@@ -1,0 +1,32 @@
+@startuml 防御配置与效果评测时序图
+
+skinparam sequenceMessageAlign center
+skinparam sequenceArrowThickness 1.5
+skinparam participantFontSize 13
+skinparam noteFontSize 11
+
+actor 用户 as User
+participant "前端页面" as Frontend
+participant "DefenseCoordinator" as DC
+participant "StrategyManager" as SM
+participant "InputGuard" as IG
+participant "RetrievalGuard" as RG
+participant "OutputGuard" as OG
+
+User -> Frontend : 提交查询请求
+Frontend -> DC : process_query(query)
+DC -> SM : get_active_strategy()
+SM --> DC : 返回当前策略配置
+DC -> IG : check_input(query)
+IG -> IG : 提示注入检测与输入归一化
+IG --> DC : 返回 GuardResult
+DC -> RG : filter_evidence(candidates)
+RG -> RG : 扩展检索、嵌入异常检测、PPL检测
+RG --> DC : 返回过滤后证据
+DC -> OG : verify_output(answer, evidence)
+OG -> OG : 一致性校验与业务规则约束
+OG --> DC : 返回 GuardResult
+DC --> Frontend : 返回最终回答及防御结果
+Frontend --> User : 展示回答及证据审查结果
+
+@enduml

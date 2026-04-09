@@ -1,0 +1,89 @@
+@startuml 资源与环境管理模块类图
+
+skinparam classAttributeIconSize 0
+skinparam classFontSize 13
+skinparam classAttributeFontSize 11
+skinparam classStereotypeFontSize 10
+skinparam packageFontSize 14
+skinparam linetype ortho
+skinparam nodesep 60
+skinparam ranksep 50
+
+package "资源与环境管理模块" {
+
+    class EnvironmentController {
+        - env_instances: dict
+        - active_scenario: str
+        + init_environment(scenario_id, config): EnvInstance
+        + switch_scenario(scenario_id): bool
+        + stop_environment(env_id): bool
+        + rollback_environment(snapshot_id): bool
+        + get_environment_status(env_id): dict
+    }
+
+    class EnvInstance {
+        - id: str
+        - name: str
+        - scenario: str
+        - status: str
+        - kb_version: str
+        - model: str
+        - create_time: str
+        - uptime: str
+        + to_dict(): dict
+        + update_status(status): void
+    }
+
+    class AssetRegistry {
+        - kb_versions: List[dict]
+        - model_configs: List[dict]
+        - prompt_templates: List[dict]
+        - service_endpoints: dict
+        + get_scenario_template(scenario_id): dict
+        + register_asset(asset_type, config): str
+        + update_version(asset_id, version): bool
+        + get_asset_config(asset_id): dict
+        + list_scenarios(): List[dict]
+    }
+
+    class ResourceMonitor {
+        - metrics_cache: dict
+        - check_interval: int
+        - services: List[dict]
+        + collect_metrics(): dict
+        + check_service_health(): List[dict]
+        + get_resource_stats(): dict
+        + push_status_update(ws_channel): void
+        + get_history_metrics(time_range): List[dict]
+    }
+
+    class SnapshotManager {
+        - snapshot_store: str
+        - max_snapshots: int
+        + create_snapshot(env_id, name): str
+        + restore_snapshot(snapshot_id): bool
+        + list_snapshots(env_id): List[dict]
+        + delete_snapshot(snapshot_id): bool
+        + compare_snapshots(id_a, id_b): dict
+    }
+
+    class TwinSyncService {
+        - ws_connection: WebSocket
+        - sync_interval: int
+        - sync_enabled: bool
+        + connect(twin_endpoint): bool
+        + disconnect(): void
+        + sync_env_status(env_id): void
+        + push_event(event_type, payload): void
+        + get_sync_status(): dict
+    }
+}
+
+EnvironmentController "1" *-- "*" EnvInstance
+EnvironmentController ..> AssetRegistry : <<call>>
+EnvironmentController ..> SnapshotManager : <<call>>
+EnvironmentController ..> ResourceMonitor : <<use>>
+ResourceMonitor ..> TwinSyncService : <<call>>
+SnapshotManager ..> EnvInstance : <<use>>
+
+@enduml

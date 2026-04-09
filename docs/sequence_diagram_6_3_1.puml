@@ -1,0 +1,30 @@
+@startuml 资源与环境管理时序图
+
+skinparam sequenceMessageAlign center
+skinparam sequenceArrowThickness 1.5
+skinparam participantFontSize 13
+skinparam noteFontSize 11
+
+actor 用户 as User
+participant "前端页面" as Frontend
+participant "EnvironmentController" as EC
+participant "AssetRegistry" as AR
+participant "ResourceMonitor" as RM
+participant "SnapshotManager" as SM
+participant "TwinSyncService" as TSS
+
+User -> Frontend : 选择场景模板并提交初始化请求
+Frontend -> EC : init_environment(scenario_id, config)
+EC -> AR : get_scenario_template(scenario_id)
+AR --> EC : 返回场景配置
+EC -> EC : 装载知识库、绑定向量索引、加载模型
+EC -> RM : check_service_health()
+RM --> EC : 返回服务状态列表
+EC -> SM : create_snapshot(env_id, "初始基线")
+SM --> EC : 返回 snapshot_id
+EC -> TSS : sync_env_status(env_id)
+TSS -> Frontend : WebSocket推送环境状态
+EC --> Frontend : 返回初始化结果
+Frontend --> User : 展示环境实例及资源监控
+
+@enduml

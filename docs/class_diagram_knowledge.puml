@@ -1,0 +1,129 @@
+@startuml 知识库管理核心类图
+
+skinparam classAttributeIconSize 0
+skinparam classFontSize 13
+skinparam classAttributeFontSize 11
+skinparam classStereotypeFontSize 10
+skinparam packageFontSize 14
+skinparam linetype ortho
+skinparam nodesep 60
+skinparam ranksep 50
+
+
+package "知识库管理模块" {
+
+    class KnowledgeBase{
+        - id: str
+        - name: str
+        - description: str
+        - chunk_count: int
+        - document_count: int
+        - word_count: int
+        - create_time: str
+        - update_time: str
+        + to_dict(): dict
+        + from_dict(kb_id, data): KnowledgeBase
+    }
+
+    class Document{
+        - id: str
+        - name: str
+        - kb_id: str
+        - file_path: str
+        - size: str
+        - status: str
+        - chunk_count: int
+        - word_count: int
+        - chunk_size: int
+        - chunk_overlap: int
+        - create_time: str
+        + to_dict(): dict
+        + from_dict(doc_id, data): Document
+    }
+
+    class Chunk {
+        - id: str
+        - text: str
+        - doc_id: str
+        - doc_name: str
+        - chunk_index: int
+        - start: int
+        - end: int
+        - char_count: int
+        - embedding: List[float]
+        - embedding_dim: int
+        - metadata: dict
+        + to_dict(): dict
+    }
+
+    class TextExtractor {
+        + extract(file_path, filename): str
+        + extract_from_pdf(file_path): str
+        + extract_from_docx(file_path): str
+        + extract_from_txt(file_path): str
+    }
+
+    class TextCleaner {
+        - SUPPORTED_RULES: List[str]
+        + clean(text, rules): CleanResult
+        - _rule_html_tags(text): str
+        - _rule_extra_whitespace(text): str
+        - _rule_phone_mask(text): str
+        - _rule_id_mask(text): str
+        - _rule_email_mask(text): str
+        - _rule_special_chars(text): str
+        - _rule_dedup_lines(text): str
+    }
+
+    class TextChunker {
+        - chunk_size: int
+        - chunk_overlap: int
+        + chunk(text): List[dict]
+        + sliding_window_chunk(text, size, overlap): List[dict]
+    }
+
+    class VectorStore {
+        - chroma_client: PersistentClient
+        - embedding_function: EmbeddingFunction
+        + create_collection(kb_id, metadata): Collection
+        + delete_collection(kb_id): void
+        + add_chunks(kb_id, ids, documents, metadatas): void
+        + delete_chunks_by_doc(kb_id, doc_id): int
+        + get_chunks(kb_id, doc_id, page, page_size): dict
+        + query(kb_id, query_text, top_k): List[dict]
+    }
+
+    class MetadataManager {
+        - meta_file: str
+        + load(): dict
+        + save(meta): void
+        + list_knowledge_bases(): List[KnowledgeBase]
+        + list_documents(kb_id): List[Document]
+        + register_knowledge_base(kb): void
+        + remove_knowledge_base(kb_id): List[str]
+        + register_document(doc): void
+        + remove_document(doc_id): Document
+    }
+
+    class CleanResult {
+        - original: str
+        - cleaned: str
+        - original_length: int
+        - cleaned_length: int
+        - compression_rate: str
+        - applied_rules: List[str]
+        + to_dict(): dict
+    }
+}
+
+KnowledgeBase "1" *-- "*" Document
+Document "1" *-- "*" Chunk
+Document ..> TextExtractor : <<call>>
+Document ..> TextCleaner : <<call>>
+Document ..> TextChunker : <<call>>
+TextCleaner ..> CleanResult : <<create>>
+VectorStore ..> Chunk : <<create>>
+MetadataManager ..> KnowledgeBase : <<create>>
+MetadataManager ..> Document : <<create>>
+
+@enduml

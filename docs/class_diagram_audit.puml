@@ -1,0 +1,89 @@
+@startuml 决策审计核心类图
+
+skinparam classAttributeIconSize 0
+skinparam classFontSize 13
+skinparam classAttributeFontSize 11
+skinparam classStereotypeFontSize 10
+skinparam packageFontSize 14
+skinparam linetype ortho
+skinparam nodesep 60
+skinparam ranksep 50
+
+package "决策审计模块" {
+
+    class DecisionLog {
+        - id: str
+        - type: str
+        - type_label: str
+        - question: str
+        - answer: str
+        - user: str
+        - duration: str
+        - create_time: str
+        + to_dict(): dict
+    }
+
+    class ChatDecisionLog {
+        - messages: List[Message]
+        - retrieved_passages: List[RetrievedPassage]
+        + to_dict(): dict
+        + from_conversation(conv): ChatDecisionLog
+    }
+
+    class TwinDecisionLog {
+        - scenario: str
+        - params: dict
+        - twin_result: TwinResult
+        - risk_level: str
+        + to_dict(): dict
+    }
+
+    class RetrievedPassage {
+        - doc_title: str
+        - section: str
+        - relevance: float
+        - content: str
+        + to_dict(): dict
+    }
+
+    class TwinResult {
+        - summary: str
+        - affected_lines: List[dict]
+        - recommendations: List[str]
+        - risk_level: str
+        + to_dict(): dict
+    }
+
+    class DecisionLogManager {
+        - conversation_mgr: ConversationManager
+        + get_all_logs(): List[dict]
+        + search_logs(keyword, type_filter): List[dict]
+        + get_log_detail(log_id): dict
+        + get_statistics(): dict
+    }
+
+    class LogExportService {
+        + export_to_csv(logs): str
+        + format_log_data(log): dict
+    }
+
+    class LogQueryService {
+        - keyword: str
+        - type_filter: str
+        - date_range: tuple
+        + search(keyword): List[DecisionLog]
+        + filter_by_type(type): List[DecisionLog]
+        + reset(): void
+    }
+}
+
+DecisionLog <|-- ChatDecisionLog
+DecisionLog <|-- TwinDecisionLog
+ChatDecisionLog "1" *-- "*" RetrievedPassage
+TwinDecisionLog "1" *-- "1" TwinResult
+DecisionLogManager ..> ChatDecisionLog : <<create>>
+DecisionLogManager ..> TwinDecisionLog : <<create>>
+LogExportService ..> DecisionLog : <<use>>
+LogQueryService ..> DecisionLog : <<use>>
+
+@enduml

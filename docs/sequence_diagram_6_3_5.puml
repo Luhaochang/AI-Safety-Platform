@@ -1,0 +1,41 @@
+@startuml 效果评测与复盘分析时序图
+
+skinparam sequenceMessageAlign center
+skinparam sequenceArrowThickness 1.5
+skinparam participantFontSize 13
+skinparam noteFontSize 11
+
+actor 用户 as User
+participant "前端页面" as Frontend
+participant "TaskController" as TC
+participant "ProcessScheduler" as PS
+participant "MetricCalculator" as MC
+participant "ReportGenerator" as RGen
+participant "ReplayManager" as RM
+
+User -> Frontend : 创建验证任务并配置场景
+Frontend -> TC : create_task(scenario, config)
+TC --> Frontend : 返回 task_id
+User -> Frontend : 启动任务
+Frontend -> TC : start_task(task_id)
+TC -> PS : schedule(task_id)
+PS -> PS : 依次执行环境初始化、攻击、防御、态势分析
+PS --> TC : 返回流程执行完成
+TC --> Frontend : 返回任务完成状态
+Frontend --> User : 展示任务完成及各阶段状态
+
+User -> Frontend : 点击生成报告
+Frontend -> MC : calculate_all(task_id)
+MC -> MC : 计算攻击、防御、资源各项指标
+MC -> RGen : generate_report(task_id, metrics)
+RGen --> MC : 返回 Report
+MC --> Frontend : 返回指标汇总与报告
+Frontend --> User : 展示评估报告
+
+User -> Frontend : 点击回放
+Frontend -> RM : build_timeline(task_id)
+RM -> RM : 构建回放时间轴
+RM --> Frontend : 返回回放数据
+Frontend --> User : 展示过程回放时间轴
+
+@enduml

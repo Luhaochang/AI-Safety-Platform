@@ -1,0 +1,76 @@
+@startuml 电力调度RAG业务流程图
+
+left to right direction
+skinparam defaultTextAlignment center
+skinparam padding 4
+skinparam nodesep 10
+skinparam ranksep 10
+skinparam rectangleFontSize 12
+skinparam arrowThickness 1.5
+hide stereotype
+
+skinparam rectangle<<prepare>> {
+    BackgroundColor #E3F2FD
+    BorderColor #1565C0
+    BorderStyle dashed
+    RoundCorner 8
+}
+skinparam rectangle<<qa>> {
+    BackgroundColor #FFF8E1
+    BorderColor #F9A825
+    BorderStyle dashed
+    RoundCorner 8
+}
+skinparam rectangle<<audit>> {
+    BackgroundColor #E8F5E9
+    BorderColor #2E7D32
+    BorderStyle dashed
+    RoundCorner 8
+}
+skinparam rectangle<<box>> {
+    BackgroundColor white
+    BorderColor #666666
+    RoundCorner 4
+    FontSize 11
+}
+skinparam rectangle<<src>> {
+    BackgroundColor #ECEFF1
+    BorderColor #78909C
+    BorderStyle dashed
+    RoundCorner 8
+}
+
+rectangle "知识来源" as SRC <<src>> {
+    rectangle "调度规程" as k1 <<box>>
+    rectangle "事故预案" as k2 <<box>>
+    rectangle "操作票规范" as k3 <<box>>
+    rectangle "运行案例" as k4 <<box>>
+}
+
+rectangle "知识准备阶段" as PREP <<prepare>> {
+    rectangle "文档采集" as p1 <<box>>
+    rectangle "文档清洗" as p2 <<box>>
+    rectangle "文本切块" as p3 <<box>>
+    rectangle "向量化编码" as p4 <<box>>
+    rectangle "索引入库" as p5 <<box>>
+}
+
+rectangle "用户问答阶段" as QA <<qa>> {
+    rectangle "用户输入问题" as q1 <<box>>
+    rectangle "问题向量化" as q2 <<box>>
+    rectangle "语义检索召回" as q3 <<box>>
+    rectangle "增强提示构造" as q4 <<box>>
+    rectangle "LLM生成回答" as q5 <<box>>
+}
+
+rectangle "决策审计阶段" as AUDIT <<audit>> {
+    rectangle "问答日志记录" as a1 <<box>>
+    rectangle "引用来源追溯" as a2 <<box>>
+    rectangle "决策可审计" as a3 <<box>>
+}
+
+SRC -right-> PREP : 文档接入
+PREP -right-> QA : 知识库支撑
+QA -right-> AUDIT : 全程记录
+
+@enduml

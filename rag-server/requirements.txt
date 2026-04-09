@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+python-multipart
+chromadb
+sentence-transformers>=2.6.0
+rank-bm25
+numpy
+requests
+chardet
+python-docx
+PyPDF2
+pdfplumber
+nltk

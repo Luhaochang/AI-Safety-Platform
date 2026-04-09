@@ -1,0 +1,26 @@
+@startuml 决策审计交互时序图
+
+skinparam sequenceMessageAlign center
+skinparam sequenceArrowThickness 1.5
+skinparam participantFontSize 13
+skinparam noteFontSize 11
+
+actor 用户 as User
+participant "前端页面" as Frontend
+participant "DecisionLogManager" as DLM
+participant "LogExportService" as LES
+
+User -> Frontend : 进入决策审计界面
+Frontend -> DLM : get_all_logs()
+DLM --> Frontend : 返回日志列表
+Frontend --> User : 展示决策日志列表
+User -> Frontend : 关键词查询并查看详情
+Frontend -> DLM : get_log_detail(log_id)
+DLM --> Frontend : 返回完整问答记录
+Frontend --> User : 展示日志详情与检索语段
+User -> Frontend : 导出日志
+Frontend -> LES : export_to_csv(logs)
+LES --> Frontend : 返回CSV文件
+Frontend --> User : 下载导出文件
+
+@enduml

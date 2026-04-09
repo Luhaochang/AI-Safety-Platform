@@ -1,0 +1,26 @@
+@startuml 知识库管理交互时序图
+
+skinparam sequenceMessageAlign center
+skinparam sequenceArrowThickness 1.5
+skinparam participantFontSize 13
+skinparam noteFontSize 11
+
+actor 用户 as User
+participant "前端页面" as Frontend
+participant "MetadataManager" as MM
+participant "TextExtractor" as TE
+participant "TextChunker" as TK
+participant "VectorStore" as VS
+
+User -> Frontend : 创建知识库并上传文档
+Frontend -> MM : register_knowledge_base(name, desc)
+MM --> Frontend : 返回 kb_id
+Frontend -> TE : extract(file_path)
+TE --> Frontend : 返回清洗后纯文本
+Frontend -> TK : chunk(text, size, overlap)
+TK --> Frontend : 返回分块列表
+Frontend -> VS : add_chunks(kb_id, chunks)
+VS --> Frontend : 向量化入库完成
+Frontend --> User : 展示分块结果与向量详情
+
+@enduml

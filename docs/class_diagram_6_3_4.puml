@@ -1,0 +1,96 @@
+@startuml 态势感知与预案生成模块类图
+
+skinparam classAttributeIconSize 0
+skinparam classFontSize 13
+skinparam classAttributeFontSize 11
+skinparam classStereotypeFontSize 10
+skinparam packageFontSize 14
+skinparam linetype ortho
+skinparam nodesep 60
+skinparam ranksep 50
+
+package "态势感知与预案生成模块" {
+
+    class Event {
+        - id: str
+        - type: str
+        - source: str
+        - task_id: str
+        - timestamp: datetime
+        - payload: dict
+        + to_dict(): dict
+    }
+
+    class Chain {
+        - id: str
+        - chain_type: str
+        - events: List[Event]
+        - risk_level: str
+        - create_time: str
+        + to_dict(): dict
+        + get_summary(): str
+    }
+
+    class EventCollector {
+        - sources: List[str]
+        - event_buffer: List[Event]
+        - subscribe_channels: List[str]
+        + collect(source): List[Event]
+        + subscribe(channel): void
+        + get_events(time_range): List[Event]
+        + flush(): void
+    }
+
+    class EventNormalizer {
+        - type_mapping: dict
+        - field_schema: dict
+        + normalize(raw_event): Event
+        + parse_timestamp(raw_ts): datetime
+        + assign_task_id(event): str
+        + classify_event(event): str
+    }
+
+    class CorrelationEngine {
+        - attack_chains: List[Chain]
+        - response_chains: List[Chain]
+        - correlation_rules: List[Rule]
+        + correlate(events): List[Chain]
+        + build_attack_chain(events): Chain
+        + build_response_chain(events): Chain
+        + get_chain(chain_id): Chain
+        + get_chain_summary(): List[dict]
+    }
+
+    class RiskEvaluator {
+        - risk_model: str
+        - severity_thresholds: dict
+        - current_risk_level: str
+        + evaluate_risk(chains): str
+        + compute_impact(chain): float
+        + compute_severity(events): float
+        + get_risk_level(): str
+        + update_assessment(): dict
+    }
+
+    class PlanGenerator {
+        - rule_templates: List[dict]
+        - case_library: List[dict]
+        - active_plans: List[dict]
+        + generate_plan(risk_assessment): dict
+        + match_template(risk_type): dict
+        + recommend_actions(context): List[str]
+        + activate_plan(plan_id): bool
+        + get_plan_detail(plan_id): dict
+    }
+}
+
+Chain "1" *-- "*" Event
+EventCollector ..> Event : <<create>>
+EventNormalizer ..> Event : <<use>>
+CorrelationEngine ..> Chain : <<create>>
+CorrelationEngine ..> Event : <<use>>
+EventCollector ..> EventNormalizer : <<call>>
+CorrelationEngine ..> RiskEvaluator : <<call>>
+RiskEvaluator ..> PlanGenerator : <<call>>
+
+@enduml

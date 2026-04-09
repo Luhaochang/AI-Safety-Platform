@@ -1,0 +1,34 @@
+@startuml 攻击验证与风险复现时序图
+
+skinparam sequenceMessageAlign center
+skinparam sequenceArrowThickness 1.5
+skinparam participantFontSize 13
+skinparam noteFontSize 11
+
+actor 用户 as User
+participant "前端页面" as Frontend
+participant "AttackController" as AC
+participant "PoisonGenerator" as PG
+participant "KnowledgeInjector" as KI
+participant "AttackEvaluator" as AE
+
+User -> Frontend : 填写攻击参数并提交
+Frontend -> AC : create_task(config)
+AC -> AC : 创建AttackTask实例
+AC --> Frontend : 返回 task_id
+
+User -> Frontend : 点击执行攻击任务
+Frontend -> AC : start_task(task_id)
+AC -> PG : generate_poison_docs(task)
+PG -> PG : BOGA-RAGP算法生成毒化文本
+PG --> AC : 返回 List[PoisonDoc]
+AC -> KI : inject_documents(poison_docs, kb_id)
+KI -> KI : 写入知识库并刷新向量索引
+KI --> AC : 返回注入结果
+AC -> AE : evaluate_attack(task_id)
+AE -> AE : 计算ASR和RSR
+AE --> AC : 返回评估结果
+AC --> Frontend : 返回执行结果(ASR, RSR)
+Frontend --> User : 展示攻击完成状态及效果指标
+
+@enduml
