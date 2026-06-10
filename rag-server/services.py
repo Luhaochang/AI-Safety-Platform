@@ -512,7 +512,7 @@ class LLMGenerator:
 
     SYSTEM_PROMPT = "你是一个专业的电力调度决策助手。请根据提供的参考资料回答问题，用Markdown格式，专业、准确、有条理。"
 
-    def __init__(self, api_key: str, api_url: str, default_model: str = "qwen-plus"):
+    def __init__(self, api_key: str, api_url: str, default_model: str = "qwen3.7-max"):
         self.api_key = api_key
         self.api_url = api_url
         self.default_model = default_model

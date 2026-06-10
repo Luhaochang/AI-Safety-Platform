@@ -1,4 +1,4 @@
-<script setup>
+<script setup name="DecisionLog">
 import {
     FileSearchOutlined,
     SearchOutlined,
@@ -18,6 +18,12 @@ import {
 import { useChatStore } from '@/store/modules/chat.js';
 
 const chatStore = useChatStore();
+
+onMounted(async () => {
+    if (!chatStore.historyLoaded) {
+        await chatStore.loadHistory();
+    }
+});
 
 const state = reactive({
     keyword: '',
@@ -50,6 +56,44 @@ const handleView = (record) => {
 const handleReset = () => {
     state.keyword = '';
     state.typeFilter = 'all';
+};
+
+const handleExport = () => {
+    const logs = filteredLogs.value;
+    if (logs.length === 0) {
+        ElMessage.warning('No data to export');
+        return;
+    }
+    
+    // Create CSV content
+    const headers = ['ID', 'Type', 'Question', 'Answer', 'User', 'Duration', 'Time'];
+    const rows = logs.map(log => [
+        log.id || '',
+        log.typeLabel || '',
+        log.question || '',
+        log.answer || '',
+        log.user || '',
+        log.duration || '',
+        log.createTime || ''
+    ]);
+    
+    let csvContent = '\ufeff' + headers.join(',') + '\n';
+    rows.forEach(row => {
+        csvContent += row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',') + '\n';
+    });
+    
+    // Download file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `decision_logs_${new Date().toISOString().slice(0,10)}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    ElMessage.success('Export successful');
 };
 
 const riskColor = (level) => {
@@ -102,7 +146,7 @@ const renderMarkdown = (text) => {
                     </a-radio-group>
                     <a-button @click="handleReset"><ReloadOutlined /> 重置</a-button>
                 </div>
-                <a-button><ExportOutlined /> 导出</a-button>
+                <a-button @click="handleExport"><ExportOutlined /> Export</a-button>
             </div>
 
             <!-- 日志表格 -->

@@ -12,26 +12,46 @@ function ragServerPlugin() {
         name: 'auto-start-rag-server',
         configureServer() {
             const ragDir = path.resolve(__dirname, '../rag-server');
+            const isWin = process.platform === 'win32';
+            const defaultCommand = isWin
+                ? 'call conda activate rag && python main.py'
+                : 'python3 main.py';
+            const startCommand = process.env.RAG_START_COMMAND || defaultCommand;
+            const shell = isWin ? 'cmd.exe' : 'bash';
+            const shellArgs = isWin ? ['/c', startCommand] : ['-lc', startCommand];
+
             console.log('\x1b[36m[RAG] 正在自动启动 rag-server ...\x1b[0m');
-            const pythonPath = 'D:\\anaconda3\\envs\\boga\\python.exe';
-            ragProcess = spawn(pythonPath, ['main.py'], {
+            console.log(`\x1b[90m[RAG] 命令: ${shell} ${shellArgs.join(' ')}\x1b[0m`);
+
+            ragProcess = spawn(shell, shellArgs, {
                 cwd: ragDir,
-                stdio: ['ignore', 'pipe', 'pipe'],
-                shell: true
+                stdio: ['ignore', 'pipe', 'pipe']
             });
+
             ragProcess.stdout.on('data', (data) => {
                 process.stdout.write(`\x1b[36m[RAG] ${data}\x1b[0m`);
             });
             ragProcess.stderr.on('data', (data) => {
                 process.stderr.write(`\x1b[33m[RAG-ERR] ${data}\x1b[0m`);
             });
+            ragProcess.on('error', (error) => {
+                console.log(`\x1b[31m[RAG] rag-server 启动失败: ${error.message}\x1b[0m`);
+                console.log('\x1b[31m[RAG] 请确认已安装 conda 环境，或通过设置环境变量 RAG_START_COMMAND 来指定启动命令。\x1b[0m');
+            });
             ragProcess.on('close', (code) => {
-                if (code !== 0) console.log(`\x1b[31m[RAG] rag-server 退出，代码: ${code}\x1b[0m`);
+                if (code !== 0) {
+                    console.log(`\x1b[31m[RAG] rag-server 退出，代码: ${code}\x1b[0m`);
+                }
             });
             // 前端 dev server 关闭时也关闭 rag-server
-            process.on('exit', () => { if (ragProcess) ragProcess.kill(); });
-            process.on('SIGINT', () => { if (ragProcess) ragProcess.kill(); process.exit(); });
-            process.on('SIGTERM', () => { if (ragProcess) ragProcess.kill(); process.exit(); });
+            const cleanup = () => {
+                if (ragProcess && !ragProcess.killed) {
+                    ragProcess.kill('SIGTERM');
+                }
+            };
+            process.on('exit', cleanup);
+            process.on('SIGINT', () => { cleanup(); process.exit(); });
+            process.on('SIGTERM', () => { cleanup(); process.exit(); });
         }
     };
 }
@@ -46,7 +66,7 @@ export default defineConfig(({mode, command}) => {
         base: VITE_APP_ENV === 'production' ? '/' : '/',
         plugins: [
             createVitePlugins(env, command === 'build'),
-            // command === 'serve' ? ragServerPlugin() : null,  // 已禁用自动启动后端
+            command === 'serve' ? ragServerPlugin() : null,
         ].filter(Boolean),
         resolve: {
             // https://cn.vitejs.dev/config/#resolve-alias
@@ -66,6 +86,11 @@ export default defineConfig(({mode, command}) => {
             open: false,
             proxy: {
                 // https://cn.vitejs.dev/config/#server-proxy
+                '/api/rag-api': {
+                    target: 'http://localhost:8765',
+                    changeOrigin: true,
+                    rewrite: (p) => p.replace(/^\/api\/rag-api/, '/api/rag')
+                },
                 '/api': {
                     target: 'http://localhost:8080',
                     changeOrigin: true,

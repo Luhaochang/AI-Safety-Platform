@@ -7,8 +7,12 @@ import {
     DatabaseOutlined, SearchOutlined, SyncOutlined, FireOutlined,
     FileTextOutlined, BarChartOutlined, InfoCircleOutlined
 } from '@ant-design/icons-vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 import * as echarts from 'echarts';
+import { useSecurityStore } from '@/store/modules/security.js';
+
+const securityStore = useSecurityStore();
 
 const state = reactive({
     activeTab: 'overview',
@@ -19,79 +23,257 @@ const state = reactive({
     generatingPlan: false,
 });
 
-// ====== Mock 态势概览统计 ======
-const overviewStats = ref({
-    riskLevel: '中风险',
-    totalEvents: 156,
-    attackEvents: 23,
-    defenseEvents: 89,
-    anomalyEvents: 12,
-    normalEvents: 32,
-    last24hAttacks: 8,
-    blockedRate: 91.3,
+const completedAttacks = computed(() => securityStore.completedAttacks);
+const defenseResults = computed(() => securityStore.defenseResultsSorted);
+
+const parseTime = (value, idx = 0) => {
+    if (!value) {
+        const fallback = new Date(Date.now() + idx * 60000);
+        return fallback;
+    }
+    const date = new Date(value.replace(/-/g, '/'));
+    if (Number.isNaN(date.getTime())) {
+        const fallback = new Date(Date.now() + idx * 60000);
+        return fallback;
+    }
+    return date;
+};
+
+const formatHour = (date) => `${String(date.getHours()).padStart(2, '0')}:00`;
+
+const attackChainEvents = computed(() => {
+    const events = [];
+    completedAttacks.value.forEach((task, idx) => {
+        const runTime = parseTime(task.createTime, idx);
+        events.push({
+            id: `${task.id}-attack`,
+            time: runTime.toISOString().slice(0, 19).replace('T', ' '),
+            type: 'attack',
+            severity: task.strength === '高' ? 'high' : task.strength === '低' ? 'low' : 'medium',
+            source: task.method,
+            target: task.targetKb || '目标知识库',
+            action: '毒化文档注入',
+            detail: `注入 ${task.poisonDocs?.length || 0} 篇毒化文档，目标主题：${task.targetTopic || '未指定'}`,
+            status: 'detected',
+        });
+    });
+
+    defenseResults.value.forEach((result, idx) => {
+        const metrics = result.metrics || {};
+        const runTime = parseTime(result.createdAt, completedAttacks.value.length + idx);
+        events.push({
+            id: `${result.id}-defense`,
+            time: runTime.toISOString().slice(0, 19).replace('T', ' '),
+            type: 'defense',
+            severity: metrics.asrAfter && metrics.asrAfter < 10 ? 'low' : 'medium',
+            source: '组合护栏',
+            target: '候选证据集',
+            action: `护栏拦截 ${metrics.blocked || 0} 篇毒化证据`,
+            detail: `检索护栏过滤 ${metrics.retrievalBlocked || 0} 篇，输出重写 ${metrics.outputRewritten || 0} 次`,
+            status: 'blocked',
+        });
+        if ((metrics.filtered || 0) > 0) {
+            events.push({
+                id: `${result.id}-anomaly`,
+                time: runTime.toISOString().slice(0, 19).replace('T', ' '),
+                type: 'anomaly',
+                severity: metrics.filtered > 2 ? 'high' : 'medium',
+                source: '护栏检测',
+                target: '日志分析',
+                action: '发现可疑证据',
+                detail: `检测到 ${metrics.filtered} 篇潜在异常证据需人工复核`,
+                status: 'warning',
+            });
+        }
+    });
+
+    if (!events.length) {
+        const now = new Date();
+        events.push({
+            id: 'EVT-DEFAULT',
+            time: now.toISOString().slice(0, 19).replace('T', ' '),
+            type: 'attack',
+            severity: 'low',
+            source: '监控',
+            target: '系统',
+            action: '暂无实战数据',
+            detail: '请先在“攻击验证与风险复现”模块执行攻击任务',
+            status: 'detected',
+        });
+    }
+
+    return events.sort((a, b) => parseTime(a.time).getTime() - parseTime(b.time).getTime());
 });
 
-// ====== Mock 攻击链事件 ======
-const attackChainEvents = ref([
-    { id: 'EVT-001', time: '2025-04-01 10:32:15', type: 'attack', severity: 'high', source: 'BOGA-RAGP', target: '电力调度规程库', action: '毒化文档注入', detail: '检测到5篇毒化文档注入知识库，目标主题：变压器油温处置', status: 'detected' },
-    { id: 'EVT-002', time: '2025-04-01 10:32:18', type: 'anomaly', severity: 'high', source: '检索服务', target: '向量索引', action: '异常检索命中', detail: '3篇毒化文档进入Top-10检索结果，相似度异常偏高(>0.89)', status: 'detected' },
-    { id: 'EVT-003', time: '2025-04-01 10:32:20', type: 'defense', severity: 'medium', source: '检索护栏', target: '候选证据集', action: '嵌入空间异常检测触发', detail: '检测到3篇候选证据嵌入Z-Score>2.5，判定为异常聚集', status: 'blocked' },
-    { id: 'EVT-004', time: '2025-04-01 10:32:21', type: 'defense', severity: 'medium', source: '检索护栏', target: '候选证据集', action: '语句级PPL异常检测触发', detail: '2篇证据的局部PPL Z-Score>2.0，存在风格断裂', status: 'blocked' },
-    { id: 'EVT-005', time: '2025-04-01 10:32:22', type: 'defense', severity: 'low', source: '输出护栏', target: '生成结果', action: '证据一致性校验通过', detail: '过滤后证据与生成结果一致性>0.85，输出安全', status: 'passed' },
-    { id: 'EVT-006', time: '2025-04-01 10:35:42', type: 'attack', severity: 'high', source: 'PoisonedRAG', target: '电力调度规程库', action: '定向投毒注入', detail: '检测到3篇定向投毒文档，目标查询：110kV线路跳闸处置', status: 'detected' },
-    { id: 'EVT-007', time: '2025-04-01 10:35:45', type: 'defense', severity: 'medium', source: '输入护栏', target: '用户查询', action: '提示注入检测触发', detail: '检测到查询中包含可疑指令注入片段，已净化', status: 'blocked' },
-    { id: 'EVT-008', time: '2025-04-01 10:38:10', type: 'anomaly', severity: 'medium', source: '资源监控', target: 'GPU服务', action: '显存占用异常', detail: 'GPU显存占用突增至92%，可能影响推理服务稳定性', status: 'warning' },
-]);
+const eventCategoryCounts = computed(() => {
+    const counts = { attack: 0, defense: 0, anomaly: 0 };
+    attackChainEvents.value.forEach((evt) => {
+        if (evt.type === 'attack') counts.attack += 1;
+        if (evt.type === 'defense') counts.defense += 1;
+        if (evt.type === 'anomaly') counts.anomaly += 1;
+    });
+    counts.normal = Math.max(0, counts.defense - counts.anomaly);
+    return counts;
+});
 
-// ====== Mock 风险分布 ======
-const riskDistribution = ref([
-    { area: '知识库入口', risk: 85, attacks: 8, blocked: 7 },
-    { area: '检索链路', risk: 72, attacks: 12, blocked: 11 },
-    { area: '生成链路', risk: 45, attacks: 3, blocked: 3 },
-    { area: '输入链路', risk: 38, attacks: 5, blocked: 5 },
-    { area: '输出链路', risk: 25, attacks: 2, blocked: 2 },
-]);
+const timelineBuckets = computed(() => {
+    const bucketMap = new Map();
+    attackChainEvents.value.forEach((evt, idx) => {
+        const label = formatHour(parseTime(evt.time, idx));
+        if (!bucketMap.has(label)) {
+            bucketMap.set(label, { attack: 0, defense: 0, anomaly: 0 });
+        }
+        const bucket = bucketMap.get(label);
+        if (evt.type === 'attack') bucket.attack += 1;
+        if (evt.type === 'defense') bucket.defense += 1;
+        if (evt.type === 'anomaly') bucket.anomaly += 1;
+    });
+    if (!bucketMap.size) {
+        bucketMap.set('00:00', { attack: 0, defense: 0, anomaly: 0 });
+    }
+    const labels = Array.from(bucketMap.keys()).sort();
+    return {
+        labels,
+        attack: labels.map((label) => bucketMap.get(label).attack),
+        defense: labels.map((label) => bucketMap.get(label).defense),
+        anomaly: labels.map((label) => bucketMap.get(label).anomaly),
+    };
+});
 
-// ====== Mock 预案 ======
-const plans = ref([
-    {
-        id: 'PLAN-001', name: '知识库投毒应急响应预案', trigger: '检测到批量毒化文档注入',
-        riskLevel: '高风险', createTime: '2025-04-01 10:33:00', status: 'active',
-        steps: [
-            '立即暂停受影响知识库的检索服务',
-            '启用环境快照回滚至攻击前基线状态',
-            '对注入时间窗口内的所有文档执行全量PPL扫描',
-            '清除PPL异常或嵌入空间异常的文档',
-            '重建向量索引并恢复检索服务',
-            '启用增强检索护栏(α=3, Z-Score阈值降至2.0)',
-            '记录攻击特征并更新防御规则库',
-        ],
-        evidence: '基于BOGA-RAGP攻击特征: 5篇毒化文档, 嵌入Z-Score均>2.5, PPL均>25'
-    },
-    {
-        id: 'PLAN-002', name: '提示注入防御升级预案', trigger: '检测到PIA类攻击',
-        riskLevel: '中风险', createTime: '2025-04-01 10:36:00', status: 'standby',
-        steps: [
-            '启用输入护栏强化模式(阈值降至0.6)',
-            '对近期查询日志进行回溯扫描',
-            '检查是否有异常指令通过输入层进入系统',
-            '更新提示注入检测规则库',
-            '生成安全报告并通知管理员',
-        ],
-        evidence: '检测到查询中包含指令注入片段，输入护栏已拦截'
-    },
-    {
-        id: 'PLAN-003', name: '资源异常处理预案', trigger: 'GPU显存占用超过90%',
-        riskLevel: '低风险', createTime: '2025-04-01 10:38:15', status: 'standby',
-        steps: [
-            '检查当前GPU上运行的模型服务负载',
-            '如有空闲模型实例则释放资源',
-            '必要时降低并发推理请求数',
-            '通知运维人员关注资源使用趋势',
-        ],
-        evidence: 'GPU显存占用92%, 临近上限'
-    },
-]);
+const eventPieData = computed(() => {
+    const counts = eventCategoryCounts.value;
+    return [
+        { value: counts.attack, name: '攻击事件', itemStyle: { color: '#ff4d4f' } },
+        { value: counts.defense, name: '防御触发', itemStyle: { color: '#52c41a' } },
+        { value: counts.anomaly, name: '异常告警', itemStyle: { color: '#faad14' } },
+        { value: Math.max(0, counts.normal), name: '正常事件', itemStyle: { color: '#1677ff' } },
+    ];
+});
+
+const aggregateMetrics = computed(() => defenseResults.value.reduce((acc, item) => {
+    const metrics = item.metrics || {};
+    acc.totalEvidence += metrics.totalEvidence || 0;
+    acc.blocked += metrics.blocked || 0;
+    acc.passed += metrics.passed || 0;
+    acc.filtered += metrics.filtered || 0;
+    acc.inputBlocked += metrics.inputBlocked || 0;
+    acc.retrievalBlocked += metrics.retrievalBlocked || 0;
+    acc.outputRewritten += metrics.outputRewritten || 0;
+    acc.peakGpu = Math.max(acc.peakGpu, metrics.peakGpu || 0);
+    acc.asrBefore.push(metrics.asrBefore || 0);
+    acc.asrAfter.push(metrics.asrAfter || 0);
+    return acc;
+}, {
+    totalEvidence: 0,
+    blocked: 0,
+    passed: 0,
+    filtered: 0,
+    inputBlocked: 0,
+    retrievalBlocked: 0,
+    outputRewritten: 0,
+    peakGpu: 0,
+    asrBefore: [],
+    asrAfter: [],
+}));
+
+const overviewStats = computed(() => {
+    const counts = eventCategoryCounts.value;
+    const totals = aggregateMetrics.value;
+    const totalEvents = counts.attack + counts.defense + counts.anomaly + counts.normal;
+    const blockedRate = totals.totalEvidence
+        ? Math.round((totals.blocked / totals.totalEvidence) * 100)
+        : (defenseResults.value.length ? 90 : 0);
+    const riskLevel = blockedRate >= 90 ? '低风险' : blockedRate >= 80 ? '中风险' : '高风险';
+    const last24hAttacks = Math.min(counts.attack, completedAttacks.value.length);
+    return {
+        riskLevel,
+        totalEvents,
+        attackEvents: counts.attack,
+        defenseEvents: counts.defense,
+        anomalyEvents: counts.anomaly,
+        normalEvents: counts.normal,
+        last24hAttacks,
+        blockedRate,
+    };
+});
+
+const calcRiskScore = (blocked, total, bias = 0) => {
+    if (!total) return 30 + bias;
+    const ratio = blocked / total;
+    return Math.min(100, Math.max(15, Math.round((1 - ratio) * 100 + bias)));
+};
+
+const riskDistribution = computed(() => {
+    const totals = aggregateMetrics.value;
+    const totalEvidence = Math.max(1, totals.totalEvidence);
+    return [
+        {
+            area: '知识库入口',
+            risk: calcRiskScore(totals.blocked, totalEvidence, 25),
+            attacks: totalEvidence,
+            blocked: totals.blocked,
+        },
+        {
+            area: '检索链路',
+            risk: calcRiskScore(totals.retrievalBlocked, totalEvidence, 20),
+            attacks: totalEvidence,
+            blocked: totals.retrievalBlocked,
+        },
+        {
+            area: '生成链路',
+            risk: calcRiskScore(totals.outputRewritten || totals.filtered, totalEvidence, 10),
+            attacks: totalEvidence,
+            blocked: totals.outputRewritten,
+        },
+        {
+            area: '输入链路',
+            risk: calcRiskScore(totals.inputBlocked, completedAttacks.value.length || totalEvidence, 15),
+            attacks: completedAttacks.value.length || totalEvidence,
+            blocked: totals.inputBlocked,
+        },
+        {
+            area: '输出链路',
+            risk: calcRiskScore(totals.passed, totalEvidence, 5),
+            attacks: totalEvidence,
+            blocked: totals.passed,
+        },
+    ];
+});
+
+const generatedPlans = ref([]);
+const planStateOverrides = reactive({});
+
+const plans = computed(() => {
+    const dynamicPlans = defenseResults.value.map((result) => {
+        const metrics = result.metrics || {};
+        const riskLevel = metrics.asrBefore && metrics.asrBefore > 88 ? '高风险'
+            : metrics.asrBefore && metrics.asrBefore > 75 ? '中风险' : '低风险';
+        const defaultStatus = riskLevel === '高风险' ? 'active' : 'standby';
+        const basePlan = {
+            id: `PLAN-${result.id}`,
+            name: `${result.attackName} 防御复盘预案`,
+            trigger: `${result.attackMethod} 攻击复盘`,
+            riskLevel,
+            createTime: result.createdAt,
+            status: defaultStatus,
+            steps: [
+                `复盘 ${result.attackMethod} 攻击，清理 ${metrics.blocked || 0} 篇异常证据并回滚知识库`,
+                `重建向量索引，确保 OACC ≥ ${metrics.oacc || 90}%`,
+                `启用输入护栏强化模式，持续监控提示注入 ${metrics.inputBlocked || 0} 次`,
+                `输出护栏维持一致性阈值 0.7，确认 ASR 降至 ${metrics.asrAfter || 5}% 以下`,
+            ],
+            evidence: `ASR ${metrics.asrBefore || '-'}% → ${metrics.asrAfter || '-'}%，拦截 ${metrics.blocked || 0}/${metrics.totalEvidence || 0} 条异常证据`,
+        };
+        return basePlan;
+    });
+
+    const manualPlans = generatedPlans.value.map((plan) => ({ ...plan }));
+    const allPlans = [...manualPlans, ...dynamicPlans];
+    return allPlans.map((plan) => ({
+        ...plan,
+        status: planStateOverrides[plan.id] || plan.status,
+    }));
+});
 
 const severityColor = (s) => ({ high: 'red', medium: 'orange', low: 'blue' }[s] || 'default');
 const severityText = (s) => ({ high: '高', medium: '中', low: '低' }[s] || s);
@@ -111,7 +293,7 @@ const handleViewEvent = (evt) => {
 };
 
 const handleActivatePlan = (plan) => {
-    plan.status = 'active';
+    planStateOverrides[plan.id] = 'active';
     ElMessage.success('预案已激活: ' + plan.name);
 };
 
@@ -121,8 +303,9 @@ const handleGeneratePlan = () => {
     setTimeout(() => {
         state.generatingPlan = false;
         const now = new Date();
-        const timeStr = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0') + ' ' + String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0') + ':' + String(now.getSeconds()).padStart(2,'0');
-        const newPlanId = 'PLAN-' + String(plans.value.length + 1).padStart(3, '0');
+        const timeStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+        const newPlanId = 'PLAN-' + String(generatedPlans.value.length + defenseResults.value.length + 1).padStart(3, '0');
+        const attackCount = attackChainEvents.value.filter(e => e.type === 'attack').length;
         const newPlan = {
             id: newPlanId,
             name: '知识库多源攻击综合响应预案',
@@ -135,14 +318,15 @@ const handleGeneratePlan = () => {
                 '启用环境快照回滚至最近安全基线状态',
                 '对攻击窗口内所有新增文档执行全量PPL扫描和嵌入空间异常检测',
                 '清除PPL异常或嵌入空间异常的文档，并记录攻击特征签名',
-                '升级检索护栏参数：扩展因子α提升至3, Z-Score阈值降至1.8',
+                '升级检索护栏参数：扩展因子α提升至3，Z-Score阈值降至1.8',
                 '重建向量索引并恢复检索服务，启用增强监控模式',
                 '生成完整攻击报告并通知安全管理员',
                 '将攻击特征录入防御规则库，更新全局防护策略',
             ],
-            evidence: '基于当前态势分析: 检测到BOGA-RAGP和PoisonedRAG两种攻击方法并发作用, 共计' + attackChainEvents.value.filter(e => e.type === 'attack').length + '次攻击事件, 风险等级:高'
+            evidence: `基于当前态势分析：检测到 ${attackCount} 次攻击事件并发，风险等级评估为高。`
         };
-        plans.value.unshift(newPlan);
+        generatedPlans.value.unshift(newPlan);
+        planStateOverrides[newPlan.id] = 'active';
         ElMessage.success('预案生成成功！' + newPlanId + ' - ' + newPlan.name + ' 已自动激活');
     }, 2500);
 };
@@ -151,64 +335,130 @@ const handleGeneratePlan = () => {
 const timelineChartRef = ref(null);
 const riskMapRef = ref(null);
 const eventPieRef = ref(null);
+let timelineChartInstance = null;
+let riskMapInstance = null;
+let eventPieInstance = null;
 
-onMounted(() => {
-    // 事件时间线
-    if (timelineChartRef.value) {
-        const chart = echarts.init(timelineChartRef.value);
-        chart.setOption({
-            tooltip: { trigger: 'axis' },
-            legend: { data: ['攻击事件', '防御触发', '异常告警'], top: 0, textStyle: { fontSize: 11 } },
-            grid: { top: 30, bottom: 25, left: 45, right: 15 },
-            xAxis: { type: 'category', data: ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00'], axisLabel: { fontSize: 10 } },
-            yAxis: { type: 'value', axisLabel: { fontSize: 10 } },
-            series: [
-                { name: '攻击事件', type: 'bar', stack: 'total', data: [0, 1, 5, 3, 2, 0, 1], itemStyle: { color: '#ff4d4f' } },
-                { name: '防御触发', type: 'bar', stack: 'total', data: [2, 5, 15, 12, 8, 4, 6], itemStyle: { color: '#52c41a' } },
-                { name: '异常告警', type: 'bar', stack: 'total', data: [1, 0, 3, 2, 1, 0, 1], itemStyle: { color: '#faad14' } },
-            ]
-        });
-        window.addEventListener('resize', () => chart.resize());
+const buildTimelineOption = () => ({
+    tooltip: { trigger: 'axis' },
+    legend: { data: ['攻击事件', '防御触发', '异常告警'], top: 0, textStyle: { fontSize: 11 } },
+    grid: { top: 30, bottom: 25, left: 45, right: 15 },
+    xAxis: { type: 'category', data: timelineBuckets.value.labels, axisLabel: { fontSize: 10 } },
+    yAxis: { type: 'value', axisLabel: { fontSize: 10 } },
+    series: [
+        { name: '攻击事件', type: 'bar', stack: 'total', data: timelineBuckets.value.attack, itemStyle: { color: '#ff4d4f' } },
+        { name: '防御触发', type: 'bar', stack: 'total', data: timelineBuckets.value.defense, itemStyle: { color: '#52c41a' } },
+        { name: '异常告警', type: 'bar', stack: 'total', data: timelineBuckets.value.anomaly, itemStyle: { color: '#faad14' } },
+    ]
+});
+
+const buildRiskMapOption = () => ({
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    grid: { top: 10, bottom: 25, left: 90, right: 30 },
+    xAxis: { type: 'value', max: 100, axisLabel: { formatter: '{value}%', fontSize: 10 } },
+    yAxis: { type: 'category', data: riskDistribution.value.map(d => d.area), axisLabel: { fontSize: 11 } },
+    series: [{
+        type: 'bar',
+        data: riskDistribution.value.map(d => ({
+            value: d.risk,
+            itemStyle: { color: d.risk > 70 ? '#ff4d4f' : d.risk > 50 ? '#faad14' : '#52c41a', borderRadius: [0, 4, 4, 0] }
+        })),
+        barWidth: 20,
+        label: { show: true, position: 'right', formatter: '{c}%', fontSize: 11 }
+    }]
+});
+
+const buildEventPieOption = () => ({
+    tooltip: { trigger: 'item' },
+    series: [{
+        type: 'pie', radius: ['40%', '70%'],
+        data: eventPieData.value,
+        label: { fontSize: 11 },
+    }]
+});
+
+const renderTimelineChart = () => {
+    if (!timelineChartRef.value) return;
+    if (!timelineChartInstance) {
+        timelineChartInstance = echarts.init(timelineChartRef.value);
+        window.addEventListener('resize', handleResize);
     }
+    timelineChartInstance.setOption(buildTimelineOption(), true);
+    timelineChartInstance.resize();
+};
 
-    // 风险热力
-    if (riskMapRef.value) {
-        const chart = echarts.init(riskMapRef.value);
-        chart.setOption({
-            tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-            grid: { top: 10, bottom: 25, left: 90, right: 30 },
-            xAxis: { type: 'value', max: 100, axisLabel: { formatter: '{value}%', fontSize: 10 } },
-            yAxis: { type: 'category', data: riskDistribution.value.map(d => d.area), axisLabel: { fontSize: 11 } },
-            series: [{
-                type: 'bar',
-                data: riskDistribution.value.map(d => ({
-                    value: d.risk,
-                    itemStyle: { color: d.risk > 70 ? '#ff4d4f' : d.risk > 50 ? '#faad14' : '#52c41a', borderRadius: [0, 4, 4, 0] }
-                })),
-                barWidth: 20,
-                label: { show: true, position: 'right', formatter: '{c}%', fontSize: 11 }
-            }]
-        });
-        window.addEventListener('resize', () => chart.resize());
+const renderRiskChart = () => {
+    if (!riskMapRef.value) return;
+    if (!riskMapInstance) {
+        riskMapInstance = echarts.init(riskMapRef.value);
+        window.addEventListener('resize', handleResize);
     }
+    riskMapInstance.setOption(buildRiskMapOption(), true);
+    riskMapInstance.resize();
+};
 
-    // 事件饼图
-    if (eventPieRef.value) {
-        const chart = echarts.init(eventPieRef.value);
-        chart.setOption({
-            tooltip: { trigger: 'item' },
-            series: [{
-                type: 'pie', radius: ['40%', '70%'],
-                data: [
-                    { value: 23, name: '攻击事件', itemStyle: { color: '#ff4d4f' } },
-                    { value: 89, name: '防御触发', itemStyle: { color: '#52c41a' } },
-                    { value: 12, name: '异常告警', itemStyle: { color: '#faad14' } },
-                    { value: 32, name: '正常事件', itemStyle: { color: '#1677ff' } },
-                ],
-                label: { fontSize: 11 },
-            }]
-        });
-        window.addEventListener('resize', () => chart.resize());
+const renderEventPie = () => {
+    if (!eventPieRef.value) return;
+    if (!eventPieInstance) {
+        eventPieInstance = echarts.init(eventPieRef.value);
+        window.addEventListener('resize', handleResize);
+    }
+    eventPieInstance.setOption(buildEventPieOption(), true);
+    eventPieInstance.resize();
+};
+
+const renderOverviewCharts = () => {
+    renderTimelineChart();
+    renderRiskChart();
+    renderEventPie();
+};
+
+const handleResize = () => {
+    if (timelineChartInstance) timelineChartInstance.resize();
+    if (riskMapInstance) riskMapInstance.resize();
+    if (eventPieInstance) eventPieInstance.resize();
+};
+
+onMounted(async () => {
+    await Promise.all([
+        securityStore.fetchAttackTasks(),
+        securityStore.fetchDefenseResults(),
+        securityStore.fetchSituation()
+    ]);
+    if (state.activeTab === 'overview') {
+        nextTick(renderOverviewCharts);
+    }
+});
+
+watch(() => state.activeTab, (tab) => {
+    if (tab === 'overview') {
+        nextTick(renderOverviewCharts);
+    }
+});
+
+watch([timelineBuckets, riskDistribution, eventPieData], () => {
+    if (state.activeTab === 'overview') {
+        nextTick(renderOverviewCharts);
+    } else {
+        if (timelineChartInstance) timelineChartInstance.setOption(buildTimelineOption(), true);
+        if (riskMapInstance) riskMapInstance.setOption(buildRiskMapOption(), true);
+        if (eventPieInstance) eventPieInstance.setOption(buildEventPieOption(), true);
+    }
+});
+
+onBeforeUnmount(() => {
+    window.removeEventListener('resize', handleResize);
+    if (timelineChartInstance) {
+        timelineChartInstance.dispose();
+        timelineChartInstance = null;
+    }
+    if (riskMapInstance) {
+        riskMapInstance.dispose();
+        riskMapInstance = null;
+    }
+    if (eventPieInstance) {
+        eventPieInstance.dispose();
+        eventPieInstance = null;
     }
 });
 </script>

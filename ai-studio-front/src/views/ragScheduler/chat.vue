@@ -1,11 +1,9 @@
 <script setup>
 import {
-    SendOutlined,
     RobotOutlined,
+    SendOutlined,
     UserOutlined,
-    BookOutlined,
-    HistoryOutlined,
-    DeleteOutlined,
+    MessageOutlined,
     PlusOutlined,
     ThunderboltOutlined,
     FileTextOutlined,
@@ -14,9 +12,11 @@ import {
     BulbOutlined,
     ClusterOutlined,
     CheckCircleOutlined,
-    ExclamationCircleOutlined
+    ExclamationCircleOutlined,
+    BookOutlined,
+    DeleteOutlined
 } from '@ant-design/icons-vue';
-import { ragChat, checkRagStatus, callQwenApi } from '@/api/ragScheduler/index.js';
+import { ragChat, checkRagStatus, callQwenApi, listKnowledgeBasesReal } from '@/api/ragScheduler/index.js';
 import { useChatStore } from '@/store/modules/chat.js';
 import { ElMessage, ElMessageBox } from 'element-plus';
 
@@ -25,10 +25,13 @@ const inputRef = ref(null);
 const chatContainerRef = ref(null);
 
 const QWEN_MODELS = [
-    { value: 'qwen-turbo', label: 'Qwen-Turbo', desc: '快速响应' },
-    { value: 'qwen-plus',  label: 'Qwen-Plus',  desc: '平衡推荐' },
-    { value: 'qwen-max',   label: 'Qwen-Max',   desc: '最强推理' },
-    { value: 'qwen-long',  label: 'Qwen-Long',  desc: '超长上下文' },
+    { value: 'qwen3.7-max', label: 'Qwen3.7-Max', desc: 'Latest generation, strongest performance (recommended)' },
+    { value: 'qwen3.5-122b-a10b', label: 'Qwen3.5-122B', desc: 'Strongest reasoning' },
+    { value: 'qwen3-235b-a22b', label: 'Qwen3-235B', desc: 'Strongest reasoning' },
+    { value: 'qwen-turbo', label: 'Qwen-Turbo', desc: 'Fast response' },
+    { value: 'qwen-plus',  label: 'Qwen-Plus',  desc: 'Balanced performance' },
+    { value: 'qwen-max',   label: 'Qwen-Max',   desc: 'Strongest performance' },
+    { value: 'qwen-long',  label: 'Qwen-Long',  desc: 'Ultra-long context' },
 ];
 
 const state = reactive({
@@ -37,7 +40,11 @@ const state = reactive({
     showSuggestions: true,
     ragConnected: false,
     qwenConnected: false,
-    qwenModel: 'qwen-plus',
+    qwenModel: 'qwen3.7-max',
+    referenceDetailVisible: false,
+    selectedReference: null,
+    knowledgeBases: [],
+    selectedKbId: null,
 });
 
 const currentMessages = computed(() => {
@@ -56,11 +63,32 @@ const suggestions = [
 const checkConnection = async () => {
     try {
         const res = await checkRagStatus();
-        if (res.data?.code === 200) {
+        if (res?.data?.code === 200) {
             state.ragConnected = true;
-            state.qwenConnected = res.data.data?.qwen === 'connected';
+            state.qwenConnected = res.data.data.qwen_api_connected;
+        } else {
+            state.ragConnected = false;
+            state.qwenConnected = false;
         }
-    } catch { state.ragConnected = false; state.qwenConnected = false; }
+    } catch (error) {
+        state.ragConnected = false;
+        state.qwenConnected = false;
+    }
+};
+
+const loadKnowledgeBases = async () => {
+    try {
+        const res = await listKnowledgeBasesReal();
+        if (res?.data?.code === 200) {
+            state.knowledgeBases = res.data.data || [];
+            // Auto-select first knowledge base if none selected
+            if (!state.selectedKbId && state.knowledgeBases.length > 0) {
+                state.selectedKbId = state.knowledgeBases[0].id;
+            }
+        }
+    } catch (error) {
+        console.error('Failed to load knowledge bases:', error);
+    }
 };
 
 const sendMessage = async () => {
@@ -90,7 +118,7 @@ const sendMessage = async () => {
 
         if (state.ragConnected) {
             // RAG 模式：检索知识库 → CrossEncoder重排 → Qwen生成
-            const res = await ragChat(text, convId, null, state.qwenModel).catch(() => null);
+            const res = await ragChat(text, convId, state.selectedKbId, state.qwenModel).catch(() => null);
             if (res?.data?.code === 200) {
                 assistantContent = res.data.data.answer;
                 references = res.data.data.references || [];
@@ -165,6 +193,11 @@ const copyMessage = (content) => {
     navigator.clipboard.writeText(content).then(() => ElMessage.success('已复制'));
 };
 
+const viewReferenceDetail = (ref) => {
+    state.selectedReference = ref;
+    state.referenceDetailVisible = true;
+};
+
 const renderMarkdown = (text) => {
     if (!text) return '';
     return text
@@ -180,6 +213,7 @@ const renderMarkdown = (text) => {
 
 onMounted(async () => {
     await checkConnection();
+    await loadKnowledgeBases();
     await chatStore.loadHistory();
 });
 </script>
@@ -205,11 +239,9 @@ onMounted(async () => {
                          class="rounded-lg px-3 py-2.5 cursor-pointer hover:bg-gray-50 transition-colors group"
                          :class="{ 'bg-blue-50 border border-blue-200': chatStore.currentConversationId === item.id, 'border border-transparent': chatStore.currentConversationId !== item.id }"
                          @click="selectHistory(item)">
-                        <div class="flex items-center justify-between">
+                        <div class="flex items-center justify-between gap-2">
                             <div class="text-sm font-medium text-gray-700 truncate flex-1">{{ item.title }}</div>
-                            <a-button type="text" size="small" danger
-                                      class="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-1"
-                                      @click.stop="handleDeleteConv(item)">
+                            <a-button type="text" size="small" danger class="flex-shrink-0" @click.stop="handleDeleteConv(item)">
                                 <DeleteOutlined class="text-xs" />
                             </a-button>
                         </div>
@@ -240,17 +272,34 @@ onMounted(async () => {
                     <a-tag :color="state.ragConnected ? 'green' : 'red'">
                         <CheckCircleOutlined v-if="state.ragConnected" />
                         <ExclamationCircleOutlined v-else />
-                        {{ state.ragConnected ? 'RAG 已连接' : 'RAG 未连接' }}
+                        {{ state.ragConnected ? 'RAG Connected' : 'RAG Not Connected' }}
                     </a-tag>
                     <a-tag :color="state.qwenConnected ? 'blue' : 'orange'">
                         <RobotOutlined />
-                        {{ state.qwenConnected ? 'Qwen 已连接' : 'Qwen 未连接' }}
+                        {{ state.qwenConnected ? 'Qwen Connected' : 'Qwen Not Connected' }}
                     </a-tag>
-                    <!-- Qwen 模型选择 -->
+                    <!-- Knowledge base selection -->
+                    <a-dropdown :trigger="['click']" v-if="state.knowledgeBases.length > 0">
+                        <a-button size="small">
+                            <BookOutlined />
+                            {{ state.knowledgeBases.find(kb => kb.id === state.selectedKbId)?.name || 'Select KB' }}
+                            <span class="ml-1 text-gray-400">â½</span>
+                        </a-button>
+                        <template #overlay>
+                            <a-menu @click="({key}) => state.selectedKbId = key">
+                                <a-menu-item v-for="kb in state.knowledgeBases" :key="kb.id">
+                                    <BookOutlined />
+                                    <span class="font-medium ml-1">{{ kb.name }}</span>
+                                    <span class="text-gray-400 text-xs ml-2">{{ kb.doc_count || 0 }} docs</span>
+                                </a-menu-item>
+                            </a-menu>
+                        </template>
+                    </a-dropdown>
+                    <!-- Qwen model selection -->
                     <a-dropdown :trigger="['click']">
                         <a-button size="small">
                             {{ QWEN_MODELS.find(m => m.value === state.qwenModel)?.label || 'Qwen-Plus' }}
-                            <span class="ml-1 text-gray-400">▾</span>
+                            <span class="ml-1 text-gray-400">â½</span>
                         </a-button>
                         <template #overlay>
                             <a-menu @click="({key}) => state.qwenModel = key">
@@ -311,7 +360,8 @@ onMounted(async () => {
                                     </div>
                                     <div class="space-y-1">
                                         <div v-for="(ref, rIdx) in msg.references" :key="rIdx"
-                                             class="flex items-center gap-2 text-xs bg-gray-50 rounded-lg px-3 py-2">
+                                             class="flex items-center gap-2 text-xs bg-gray-50 rounded-lg px-3 py-2 cursor-pointer hover:bg-blue-50 transition-colors"
+                                             @click="viewReferenceDetail(ref)">
                                             <FileTextOutlined class="text-blue-400" />
                                             <span class="text-gray-700 font-medium">{{ ref.title }}</span>
                                             <span class="text-gray-400">{{ ref.section }}</span>
@@ -363,4 +413,41 @@ onMounted(async () => {
             </div>
         </div>
     </div>
+
+    <!-- Reference Detail Modal -->
+    <a-modal v-model:open="state.referenceDetailVisible" 
+             title="Reference Detail" 
+             width="800px" 
+             :footer="null">
+        <div v-if="state.selectedReference" class="space-y-4">
+            <div class="bg-blue-50 rounded-lg p-4">
+                <div class="flex items-center gap-2 mb-2">
+                    <FileTextOutlined class="text-blue-500" />
+                    <span class="font-bold text-gray-800">{{ state.selectedReference.title }}</span>
+                </div>
+                <div class="text-sm text-gray-600">
+                    <span class="mr-3">{{ state.selectedReference.section }}</span>
+                    <span v-if="typeof state.selectedReference.relevance === 'number'" 
+                          class="text-blue-500">Relevance: {{ Math.round(state.selectedReference.relevance * 100) }}%</span>
+                </div>
+            </div>
+            
+            <div class="bg-gray-50 rounded-lg p-4">
+                <h4 class="font-bold text-gray-800 mb-2">Content</h4>
+                <div class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
+                    {{ state.selectedReference.content || state.selectedReference.text || 'No content available' }}
+                </div>
+            </div>
+            
+            <div v-if="state.selectedReference.metadata" class="bg-purple-50 rounded-lg p-4">
+                <h4 class="font-bold text-gray-800 mb-2">Metadata</h4>
+                <div class="grid grid-cols-2 gap-2 text-sm">
+                    <div v-for="(value, key) in state.selectedReference.metadata" :key="key">
+                        <span class="text-gray-600">{{ key }}:</span>
+                        <span class="text-gray-800 ml-1">{{ value }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </a-modal>
 </template>

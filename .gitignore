@@ -1,13 +1,83 @@
-node_modules/
-simple-rag/
+# =============================================================================
+# AI-Safety-Platform — 仅保留 ai-studio / ai-studio-front / rag-server
+# =============================================================================
+
+# ── 不需要上传的顶层目录 ─────────────────────────────────────────────────────
+DL/
 docs/
+springbootdemo/
+simple-rag/
+安全_转换后/
+调度_转换后/
+
+# ── 根目录零散文件（保留 README.md） ─────────────────────────────────────────
 /*.png
+/*.jpg
+/*.jpeg
+/*.gif
+/*.webp
 /*.md
 !README.md
 /*.docx
-package-lock.json
-yarn.lock
+/*.doc
+/*.pdf
+/*.xlsx
+/*.xls
+/*.pptx
+/*.zip
+/*.rar
+/*.7z
+/package-lock.json
+/yarn.lock
+
+# ── 依赖与构建产物 ───────────────────────────────────────────────────────────
+node_modules/
+**/node_modules/
+**/dist/
+**/target/
+**/.vite/
+*.class
+*.jar
+*.war
+
+# ── Python / RAG ─────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.venv/
+venv/
+rag-server/data/
+rag-server/.chroma/
+**/.pytest_cache/
+
+# ── 前端 ─────────────────────────────────────────────────────────────────────
 ai-studio-front/dist/
 ai-studio-front/public/conv.json
-rag-server/__pycache__/
-rag-server/data/
+
+# ── IDE / 系统 ───────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+*.swp
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.local
+
+# ── 日志 ─────────────────────────────────────────────────────────────────────
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ── 密钥与环境变量（切勿提交） ───────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+!.env.*.example
+ai-studio-front/.env.development
+ai-studio/**/application-local.yml

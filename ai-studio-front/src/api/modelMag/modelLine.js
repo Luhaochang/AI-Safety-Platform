@@ -8,7 +8,8 @@ export function listModelLine(params) {
     return request({
         method: 'get',
         url: 'production-line/pipeline/condition',
-        params
+        params,
+        hideError: true
     })
 }
 
@@ -110,4 +111,23 @@ export function changeProductLineStatus(params) {
         url: 'production-line/pipeline/quit-continue',
         params: params
     })
+}
+
+// ── Mock APIs ──────────────────────────────────────────────────────────
+export function listModelLineMock(params) {
+    const all = [
+        { id: 1, lineName: '设备缺陷检测-YOLOv8训练线', status: 4, taskTypeId: 2, appSceneId: JSON.stringify([1]), modelId: 1, createTime: '2025-01-12 10:00:00', updateTime: '2025-01-13 18:30:00', duration: 12600000, bestAcc: 0.923 },
+        { id: 2, lineName: '故障诊断BERT微调线', status: 2, taskTypeId: 9, appSceneId: JSON.stringify([2]), modelId: 2, createTime: '2025-02-05 09:00:00', updateTime: '2025-02-05 14:00:00', duration: 18200000, bestAcc: 0.891 },
+        { id: 3, lineName: '负荷预测BiLSTM训练线', status: 4, taskTypeId: 10, appSceneId: JSON.stringify([3]), modelId: 4, createTime: '2025-02-10 11:00:00', updateTime: '2025-02-10 16:00:00', duration: 9800000, bestAcc: 0.956 },
+        { id: 4, lineName: '安全帽检测-数据增强线', status: 3, taskTypeId: 2, appSceneId: JSON.stringify([5]), modelId: 7, createTime: '2025-03-01 14:00:00', updateTime: '2025-03-01 16:00:00', duration: 7200000, bestAcc: 0.872 },
+        { id: 5, lineName: '电弧故障CNN训练线', status: 5, taskTypeId: 3, appSceneId: JSON.stringify([2]), modelId: 8, createTime: '2025-03-05 08:00:00', updateTime: '2025-03-05 10:00:00', duration: null, bestAcc: null },
+    ];
+    const pageSize = params?.pageSize || 10;
+    const pageNo = params?.pageNo || 1;
+    let filtered = all;
+    if (params?.lineNameLike) filtered = filtered.filter(l => l.lineName.includes(params.lineNameLike));
+    if (params?.taskTypeIdEq) filtered = filtered.filter(l => l.taskTypeId === params.taskTypeIdEq);
+    const total = filtered.length;
+    const records = filtered.slice((pageNo - 1) * pageSize, pageNo * pageSize);
+    return Promise.resolve({ code: 200, data: { records, total } });
 }

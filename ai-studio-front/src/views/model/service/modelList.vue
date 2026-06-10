@@ -9,7 +9,7 @@ import {
   SearchOutlined
 } from "@ant-design/icons-vue";
 import {useRouter} from "vue-router";
-import {deleteService, getServiceList, stopService} from "@/api/modelMag/service.js";
+import {deleteService, getServiceList, getServiceListMock, stopService} from "@/api/modelMag/service.js";
 import {ElMessage, ElMessageBox} from "element-plus";
 
 const router = useRouter()
@@ -46,16 +46,20 @@ const onShowSizeChange = (current, pageSize) => {
 
 const getServiceData = async () => {
     loading.value = true;
-
-    const res = await getServiceList(state.queryParams);
-    if (res.code === 200) {
-        state.serviceList = res.data.records.map(item => ({
-            isShowUrl: false,
-            ...item
-        }));
-        state.total = res.data.total;
+    try {
+        const res = await getServiceList(state.queryParams);
+        if (res.code === 200) {
+            state.serviceList = res.data.records.map(item => ({ isShowUrl: false, ...item }));
+            state.total = res.data.total;
+        } else { throw new Error('no data'); }
+    } catch {
+        const mock = await getServiceListMock(state.queryParams);
+        if (mock.code === 200) {
+            state.serviceList = mock.data.records.map(item => ({ isShowUrl: false, ...item }));
+            state.total = mock.data.total;
+        }
+    } finally {
         loading.value = false;
-
     }
 }
 const handleDelete = (item) => {

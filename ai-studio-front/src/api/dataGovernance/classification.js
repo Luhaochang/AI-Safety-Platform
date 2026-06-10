@@ -7,12 +7,12 @@ import request from "@/utils/request.js";
 
 // 获取分级列表
 export function listGrades(params) {
-    return request({ method: 'get', url: 'production-line/data-governance/grade/list', params })
+    return request({ method: 'get', url: 'production-line/data-governance/grade/list', params, hideError: true })
 }
 
 // 获取分类列表
 export function listCategories(params) {
-    return request({ method: 'get', url: 'production-line/data-governance/category/list', params })
+    return request({ method: 'get', url: 'production-line/data-governance/category/list', params, hideError: true })
 }
 
 // 新增/修改分级
@@ -37,12 +37,12 @@ export function deleteCategory(id) {
 
 // 获取分级分类统计
 export function getClassificationStats() {
-    return request({ method: 'get', url: 'production-line/data-governance/stats' })
+    return request({ method: 'get', url: 'production-line/data-governance/stats', hideError: true })
 }
 
 // 获取数据血缘关系
 export function getDataLineage() {
-    return request({ method: 'get', url: 'production-line/data-governance/lineage' })
+    return request({ method: 'get', url: 'production-line/data-governance/lineage', hideError: true })
 }
 
 // --- Mock APIs ---

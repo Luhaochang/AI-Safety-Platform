@@ -223,31 +223,25 @@ export const constantRoutes = [
         path: 'env-manage',
         component: () => import('@/views/securityPlatform/envManage.vue'),
         name: 'EnvManage',
-        meta: { title: '资源与环境管理', icon: 'clipboard' }
+        meta: { title: '环境准备与装载', icon: 'clipboard' }
       },
       {
         path: 'attack-verify',
         component: () => import('@/views/securityPlatform/attackVerify.vue'),
         name: 'AttackVerify',
-        meta: { title: '攻击验证与风险复现', icon: 'bug' }
+        meta: { title: '攻击配置与执行', icon: 'bug' }
       },
       {
         path: 'defense-config',
         component: () => import('@/views/securityPlatform/defenseConfig.vue'),
         name: 'DefenseConfig',
-        meta: { title: '防御配置与效果评测', icon: 'checkcode' }
-      },
-      {
-        path: 'situation-aware',
-        component: () => import('@/views/securityPlatform/situationAware.vue'),
-        name: 'SituationAware',
-        meta: { title: '态势感知与预案生成', icon: 'eye-open' }
+        meta: { title: '防御配置与执行', icon: 'checkcode' }
       },
       {
         path: 'evaluation',
         component: () => import('@/views/securityPlatform/evaluation.vue'),
         name: 'Evaluation',
-        meta: { title: '效果评测与复盘分析', icon: 'chart' }
+        meta: { title: '复盘分析与记录', icon: 'chart' }
       }
     ]
   }

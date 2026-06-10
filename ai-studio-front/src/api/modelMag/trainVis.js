@@ -8,7 +8,8 @@ export function getTrainingMetrics(taskId) {
     return request({
         method: 'get',
         url: 'production-line/pipeline/training-metrics',
-        params: { id: taskId }
+        params: { id: taskId },
+        hideError: true
     })
 }
 
@@ -17,7 +18,8 @@ export function getInferenceMetrics(serviceId) {
     return request({
         method: 'get',
         url: 'production-line/model-service/inference-metrics',
-        params: { id: serviceId }
+        params: { id: serviceId },
+        hideError: true
     })
 }
 

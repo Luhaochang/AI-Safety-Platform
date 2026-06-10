@@ -11,3 +11,10 @@ python-docx
 PyPDF2
 pdfplumber
 nltk
+
+# ── Guardrails (optional but recommended) ─────────────────────────────
+# pip install llm-guard
+# Enables real llm-guard scanners: InvisibleText, TokenLimit, BanSubstrings.
+# The PromptInjection ML scanner (ProtectAI/deberta-v3-base-prompt-injection-v2,
+# ~300 MB) downloads automatically on first use.
+# Without llm-guard the server falls back to rule-based scanning for all checks.

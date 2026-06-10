@@ -82,6 +82,7 @@ service.interceptors.response.use(res => {
     if (res.request.responseType ===  'blob' || res.request.responseType ===  'arraybuffer') {
       return res.data
     }
+    const hideError = res.config?.hideError;
     if (code === 401) {
       if (!isRelogin.show) {
         isRelogin.show = true;
@@ -96,16 +97,24 @@ service.interceptors.response.use(res => {
     }
       return Promise.reject('无效的会话，或者会话已过期，请重新登录。')
     } else if (code === 500) {
-      ElMessage({ message: msg, type: 'error' })
+      if (!hideError) {
+        ElMessage({ message: msg, type: 'error' })
+      }
       return Promise.reject(new Error(msg))
     } else if (code === 601) {
-      ElMessage({ message: msg, type: 'warning' })
+      if (!hideError) {
+        ElMessage({ message: msg, type: 'warning' })
+      }
       return Promise.reject(new Error(msg))
     }else if (code === 400) {
-      ElMessage({message: msg,type: 'error'})
+      if (!hideError) {
+        ElMessage({message: msg,type: 'error'})
+      }
       return Promise.reject(new Error(msg))
     } else if (code !== 200) {
-      ElNotification.error({ title: msg })
+      if (!hideError) {
+        ElNotification.error({ title: msg })
+      }
       return Promise.reject('error')
     } else {
       if (res.headers&&res.headers['access-token']) {
@@ -124,8 +133,9 @@ service.interceptors.response.use(res => {
     } else if (message.includes("Request failed with status code")) {
       message = "系统接口" + message.substr(message.length - 3) + "异常";
     }
-    // 免后端模式：静默处理网络错误，不弹提示
-    // ElMessage({ message: message, type: 'error', duration: 5 * 1000 })
+    if (!error.config?.hideError) {
+      ElMessage({ message: message, type: 'error', duration: 5 * 1000 })
+    }
     return Promise.reject(error)
   }
 )

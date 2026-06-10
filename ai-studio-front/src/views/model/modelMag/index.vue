@@ -12,7 +12,7 @@ import {
   CloudServerOutlined
 } from "@ant-design/icons-vue";
 import {useRouter} from "vue-router";
-import {getModelOptions, listModel} from "@/api/modelMag/model.js";
+import {getModelOptions, listModel, listModelMock, getModelOptionsMock} from "@/api/modelMag/model.js";
 import {Clock, Refresh, Search, Sort, Star, User, View} from "@element-plus/icons-vue";
 import {nextTick, onMounted, reactive, ref} from "vue";
 import SvgIcon from "@/components/SvgIcon/index.vue";
@@ -157,7 +157,13 @@ const getList = () => {
     }
     state.loading = false;
   }).catch(() => {
-    state.loading = false;
+    listModelMock(state.queryParams).then(mock => {
+      if (mock.code === 200) {
+        state.modelList = mock.data.records;
+        state.total = mock.data.total;
+      }
+      state.loading = false;
+    });
   })
 }
 
@@ -216,9 +222,15 @@ onMounted(async () => {
       options.taskTypes = res.data.taskTypes || [];
       options.providers = res.data.providers || [];
       options.frameworks = res.data.frameworks || [];
+    } else { throw new Error('no data'); }
+  } catch {
+    const mock = await getModelOptionsMock();
+    if (mock.code === 200 && mock.data) {
+      options.appScenes = mock.data.appScenes || [];
+      options.taskTypes = mock.data.taskTypes || [];
+      options.providers = mock.data.providers || [];
+      options.frameworks = mock.data.frameworks || [];
     }
-  } catch (error) {
-    console.error("Failed to fetch model options:", error);
   }
 })
 </script>

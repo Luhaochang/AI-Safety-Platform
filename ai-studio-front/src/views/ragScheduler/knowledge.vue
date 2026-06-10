@@ -1,4 +1,4 @@
-<script setup>
+<script setup name="RagKnowledge">
 import {
     BookOutlined, PlusOutlined, SearchOutlined, FileTextOutlined, DeleteOutlined,
     CloudUploadOutlined, DatabaseOutlined, FileWordOutlined, FilePdfOutlined,
@@ -223,6 +223,7 @@ const formatVector = (arr) => {
 onMounted(async () => {
     await loadKnowledgeBases();
 });
+
 </script>
 
 <template>

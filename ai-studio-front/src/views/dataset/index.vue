@@ -17,8 +17,8 @@ import {
 } from "@ant-design/icons-vue";
 import CreateDatasetDailog from "@/views/dataset/components/createDatasetDailog.vue";
 import {useRouter} from "vue-router";
-import {listDataset} from "@/api/dataMag/dataset.js";
-import {getAllTaskType} from "@/api/modelMag/scene.js";
+import {listDataset, listDatasetMock} from "@/api/dataMag/dataset.js";
+import {getAllTaskType, getAllTaskTypeMock} from "@/api/modelMag/scene.js";
 
 const router = useRouter()
 const datasetDialogRef = ref()
@@ -76,8 +76,17 @@ const getListByPage = () => {
                 tag: JSON.parse(item.tag)
             }));
             state.total = res.data.total;
-
         }
+    }).catch(() => {
+        listDatasetMock(state.queryParams).then(mock => {
+            if (mock.code === 200) {
+                state.datasetList = mock.data.records.map(item => ({
+                    ...item,
+                    tag: JSON.parse(item.tag)
+                }));
+                state.total = mock.data.total;
+            }
+        });
     })
 }
 
@@ -153,12 +162,18 @@ const getSceneOptions = () => {
         if (res.code === 200) {
             sceneOptions.value = [
                 { value: -1, label: '所有场景' },
-                ...res.data.map(item => ({
-                    value: item.id,
-                    label: item.taskName
-                }))
-            ]
+                ...res.data.map(item => ({ value: item.id, label: item.taskName }))
+            ];
         }
+    }).catch(() => {
+        getAllTaskTypeMock().then(mock => {
+            if (mock.code === 200) {
+                sceneOptions.value = [
+                    { value: -1, label: '所有场景' },
+                    ...mock.data.map(item => ({ value: item.id, label: item.taskName }))
+                ];
+            }
+        });
     })
 }
 

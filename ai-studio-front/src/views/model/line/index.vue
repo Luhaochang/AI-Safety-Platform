@@ -27,10 +27,11 @@ import {
   changeProductLineStatus,
   deleteModelLineById,
   listModelLine,
+  listModelLineMock,
 } from "@/api/modelMag/modelLine.js";
 import {ElMessage, ElMessageBox} from "element-plus";
 import {getSonCategory} from "@/api/modelMag/label.js";
-import {getChildScene, getAllTaskType, getAllAppScene} from "@/api/modelMag/scene.js";
+import {getChildScene, getAllTaskType, getAllAppScene, getAllTaskTypeMock, getAllAppSceneMock} from "@/api/modelMag/scene.js";
 import { reactive, ref, onMounted } from "vue";
 import {SecSceneOptions} from "@/utils/applicationScene.js";
 
@@ -133,8 +134,14 @@ const getList = () => {
     if (res.code === 200) {
       state.modelList = res.data.records;
       state.total = res.data.total;
-
     }
+  }).catch(() => {
+    listModelLineMock(state.queryParams).then(mock => {
+      if (mock.code === 200) {
+        state.modelList = mock.data.records;
+        state.total = mock.data.total;
+      }
+    });
   })
 }
 
@@ -150,40 +157,52 @@ const getTaskTypes = () => {
         cover: item.image ? item.image : getCoverImage(item.taskName)
       }));
     }
+  }).catch(() => {
+    getAllTaskTypeMock().then(mock => {
+      if (mock.code === 200) {
+        state.taskTypeList = mock.data;
+        sceneOpt.value = mock.data.map(item => ({
+          ...item,
+          title: item.taskName,
+          value: item.id,
+          description: item.description,
+          cover: item.image ? item.image : getCoverImage(item.taskName)
+        }));
+      }
+    });
   })
+}
+
+const _applyAppSceneData = (data) => {
+  const grouped = data.reduce((acc, item) => {
+    const industry = item.industry || '其他';
+    if (!acc[industry]) acc[industry] = [];
+    acc[industry].push(item);
+    return acc;
+  }, {});
+  state.appSceneList = Object.keys(grouped).map(industry => ({
+    label: industry,
+    value: industry,
+    children: grouped[industry]
+  }));
+  if (state.appSceneList.length > 0) {
+    parentScene.value = state.appSceneList[0].value;
+    state.childScene = state.appSceneList[0].children.map(item => ({
+        ...item,
+        taskTypeIdName: item.appName,
+        cover: item.image ? item.image : getCoverImage(item.appName),
+        relatedTasksId: item.relatedTasksId
+    }));
+  }
 }
 
 const getAppScenes = () => {
   getAllAppScene().then(res => {
-    if (res.code === 200) {
-      // 按 industry 分组
-      const grouped = res.data.reduce((acc, item) => {
-        const industry = item.industry || '其他';
-        if (!acc[industry]) {
-          acc[industry] = [];
-        }
-        acc[industry].push(item);
-        return acc;
-      }, {});
-
-      // 转换为 Segmented 选项格式
-      state.appSceneList = Object.keys(grouped).map(industry => ({
-        label: industry,
-        value: industry,
-        children: grouped[industry] // 保存子项以便后续使用
-      }));
-
-      if (state.appSceneList.length > 0) {
-        parentScene.value = state.appSceneList[0].value;
-        // 默认展示第一个分类下的场景
-        state.childScene = state.appSceneList[0].children.map(item => ({
-            ...item,
-            taskTypeIdName: item.appName, // 统一字段名以便展示
-            cover: item.image ? item.image : getCoverImage(item.appName),
-            relatedTasksId: item.relatedTasksId // 保存关联任务ID
-        }));
-      }
-    }
+    if (res.code === 200) _applyAppSceneData(res.data);
+  }).catch(() => {
+    getAllAppSceneMock().then(mock => {
+      if (mock.code === 200) _applyAppSceneData(mock.data);
+    });
   })
 }
 

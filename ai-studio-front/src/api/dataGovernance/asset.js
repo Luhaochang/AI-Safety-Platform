@@ -8,7 +8,8 @@ export function listAssets(params) {
     return request({
         method: 'get',
         url: 'production-line/data-asset/condition',
-        params
+        params,
+        hideError: true
     })
 }
 
@@ -52,13 +53,14 @@ export function getAssetById(id) {
 export function getAssetOverview() {
     return request({
         method: 'get',
-        url: 'production-line/data-asset/overview'
+        url: 'production-line/data-asset/overview',
+        hideError: true
     })
 }
 
 // --- Mock APIs (后端未实现前使用) ---
 
-// 获取资产列表 (Mock) — 使用分级(3)+分类(7)维度
+// 获取资产列表 (Mock) — 使用分级(3)+分类(7)维度，支持筛选
 export function listAssetsMock(params) {
     const grades = ['公开级', '重要级', '核心级'];
     const categories = ['设备数据类', '运行数据类', '调度指令类', '历史案例类', '专家知识类', '规程文档类', '用户信息类'];
@@ -71,12 +73,11 @@ export function listAssetsMock(params) {
         '调度策略知识文档', '设备检修标准文档', '配电网拓扑数据', '风电出力预测数据',
         '事故处置经验库', '电能质量监测数据', 'BERT-故障分类模型', 'YOLOv8-设备检测模型'
     ];
-    const list = [];
-    const total = 48;
-    const start = ((params.pageNo || 1) - 1) * (params.pageSize || 10);
-    for (let i = 0; i < (params.pageSize || 10) && (start + i) < total; i++) {
-        const idx = start + i;
-        list.push({
+    // 1. 先生成全量数据
+    const allData = [];
+    const totalCount = 48;
+    for (let idx = 0; idx < totalCount; idx++) {
+        allData.push({
             id: idx + 1,
             assetName: assetNames[idx % assetNames.length] + (idx >= assetNames.length ? `_${Math.floor(idx / assetNames.length) + 1}` : ''),
             grade: grades[idx % grades.length],
@@ -84,15 +85,35 @@ export function listAssetsMock(params) {
             dataLayer: layers[idx % layers.length],
             source: sources[idx % sources.length],
             owner: idx % 3 === 0 ? 'admin' : idx % 3 === 1 ? '调度员A' : '运维员B',
-            size: Math.floor(Math.random() * 5000 + 100) + 'MB',
+            size: (idx * 137 % 5000 + 100) + 'MB',
             createTime: '2025-0' + ((idx % 9) + 1) + '-' + String((idx % 28) + 1).padStart(2, '0') + ' 10:00:00',
             updateTime: '2025-0' + ((idx % 9) + 1) + '-' + String((idx % 28) + 1).padStart(2, '0') + ' 14:00:00',
             description: `${categories[idx % categories.length]}相关数据资产，用于电力AI平台的训练与推理`
         });
     }
+    // 2. 按筛选条件过滤
+    let filtered = allData;
+    if (params.assetNameLike) {
+        const keyword = params.assetNameLike.toLowerCase();
+        filtered = filtered.filter(item => item.assetName.toLowerCase().includes(keyword));
+    }
+    if (params.grade) {
+        filtered = filtered.filter(item => item.grade === params.grade);
+    }
+    if (params.category) {
+        filtered = filtered.filter(item => item.category === params.category);
+    }
+    if (params.dataLayer) {
+        filtered = filtered.filter(item => item.dataLayer === params.dataLayer);
+    }
+    // 3. 对过滤结果分页
+    const total = filtered.length;
+    const pageSize = params.pageSize || 10;
+    const start = ((params.pageNo || 1) - 1) * pageSize;
+    const records = filtered.slice(start, start + pageSize);
     return new Promise((resolve) => {
         setTimeout(() => {
-            resolve({ code: 200, data: { records: list, total } });
+            resolve({ code: 200, data: { records, total } });
         }, 300);
     });
 }
